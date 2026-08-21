@@ -1,0 +1,38 @@
+name: Update Serverlist
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:   # 也支持在 Actions 页面手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Fetch and decrypt server list
+        env:
+          SERVERLIST_DES_KEY: ${{ secrets.SERVERLIST_DES_KEY }}
+        run: python3 update_serverlist.py
+
+      - name: Commit and push if changed
+        run: |
+          git add serverlist_decrypted.json
+          if git diff --cached --quiet serverlist_decrypted.json; then
+            echo "serverlist unchanged, skip commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: update serverlist $(date -u +%Y-%m-%d)"
+            git push
+          fi

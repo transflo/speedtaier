@@ -354,6 +354,51 @@ def large_packet_probe(node, samples=5):
         return _mtr_unavailable()
     return _mtr_to_summary(res)
 
+# (包管理器, 安装前的准备命令, 安装命令)
+_MTR_INSTALLERS = (
+    ("apt-get", [["apt-get", "update", "-qq"]],
+     ["apt-get", "install", "-y", "-qq", "--no-install-recommends", "mtr-tiny"]),
+    ("dnf", [], ["dnf", "install", "-y", "-q", "mtr"]),
+    ("yum", [], ["yum", "install", "-y", "-q", "mtr"]),
+    ("apk", [], ["apk", "add", "-q", "mtr"]),
+    ("pacman", [], ["pacman", "-S", "--noconfirm", "--needed", "mtr"]),
+    ("zypper", [], ["zypper", "-n", "-q", "install", "mtr"]),
+)
+_MTR_INSTALL_TIMEOUT = 300
+
+def _mtr_installed():
+    return bool(shutil.which("mtr") or shutil.which("mtr-tiny"))
+
+def _ensure_mtr():
+    if _mtr_installed():
+        return True
+    installer = next((i for i in _MTR_INSTALLERS if shutil.which(i[0])), None)
+    if installer is None:
+        _warn("未检测到 mtr，且无法识别包管理器，无法自动安装（请手动安装，如 apt install mtr-tiny / brew install mtr）")
+        return False
+    _, prep, install = installer
+    prefix = []
+    euid = os.geteuid() if hasattr(os, "geteuid") else 0
+    if euid != 0:
+        if not shutil.which("sudo"):
+            _warn("未检测到 mtr，且非 root 又无 sudo，无法自动安装（请手动执行: %s）" % " ".join(install))
+            return False
+        prefix = ["sudo"] if sys.stdin.isatty() else ["sudo", "-n"]
+    run_prefix = prefix + ["env", "DEBIAN_FRONTEND=noninteractive"]
+    _info("未检测到 mtr，正在安装 (%s) ..." % " ".join(prefix + install))
+    try:
+        for cmd in prep:
+            subprocess.run(run_prefix + cmd, timeout=_MTR_INSTALL_TIMEOUT)
+        subprocess.run(run_prefix + install, timeout=_MTR_INSTALL_TIMEOUT)
+    except Exception as e:
+        _warn("mtr 安装失败: %s（请手动执行: %s）" % (e, " ".join(prefix + install)))
+        return False
+    if not _mtr_installed():
+        _warn("mtr 安装失败（请手动执行: %s）" % " ".join(prefix + install))
+        return False
+    _ok("mtr 安装完成")
+    return True
+
 def _ensure_nexttrace():
     if shutil.which("nexttrace"):
         return True
@@ -848,6 +893,8 @@ def main():
     args = ap.parse_args()
 
     _ensure_nexttrace()
+    if not args.list:
+        _ensure_mtr()
 
     progress_enabled = not args.no_progress
     try:

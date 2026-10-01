@@ -12,7 +12,7 @@
 | 執行位置 | 隔離的 BenchOS chroot 沙箱，測完自動刪除 | 本機直接以 `python3` 執行 |
 | root 權限 | 需要（非 root 時自動使用 sudo） | 不需要 |
 | GitHub 反向代理 | 依 IP 屬地自動判斷並選用最快的 | 經一鍵腳本啟動時依 IP 屬地自動判斷（用於下載腳本與節點清單）；直接執行 `python3 globalspeed_test.py` 則直連，可自行設定環境變數 `SPEEDTAIER_PROXY` |
-| 相依套件 | 沙箱內自動安裝 | 本機需有 `python3`；建議安裝 `mtr`，`nexttrace` 會自動安裝 |
+| 相依套件 | 沙箱內自動安裝 | 本機需有 `python3`；缺少 `mtr`、`nexttrace` 時會自動安裝（`mtr` 支援 apt／dnf／yum／apk／pacman／zypper，非 root 時使用 `sudo`） |
 
 ## 快速開始（一鍵腳本）
 
@@ -29,7 +29,7 @@ bash <(curl -sL https://raw.githubusercontent.com/transflo/speedtaier/main/oneke
 
 ### 純腳本模式
 
-不需要沙箱時，加上 `--script`，直接在**本機**執行測速、延遲與封包遺失率測試。小封包與大封包的延遲及封包遺失率採用 **NetQuality 風格的 mtr TCP 探測**（`-s 64`／`-s 1400`，單次以 `-c N` 取樣），**不需 root 權限也能測試**；未安裝 mtr 時會顯示 `-` 並提示安裝：
+不需要沙箱時，加上 `--script`，直接在**本機**執行測速、延遲與封包遺失率測試。小封包與大封包的延遲及封包遺失率採用 **NetQuality 風格的 mtr TCP 探測**（`-s 64`／`-s 1400`，單次以 `-c N` 取樣），測試本身**不需 root 權限**；缺少 mtr 時會先自動安裝（需要 root 或 `sudo`，不會修改系統的套件來源；`--list` 僅列出節點時不安裝）。若自動安裝失敗（如無 `sudo`、無法識別套件管理器或逾時），只會警告並繼續測速，大小封包顯示 `-`：
 
 ```bash
 bash <(curl -sL https://raw.githubusercontent.com/transflo/speedtaier/main/onekey.sh) --script
@@ -102,6 +102,6 @@ sudo setcap cap_net_raw,cap_net_admin+eip $(command -v nexttrace)
 - **`dovalid: -1-`**：節點拒絕排入佇列（限流或忙碌），程式會自動嘗試同一電信業者的下一個節點。
 - **nexttrace 無法執行**：非 root 且未授予 `cap_net_raw` 時會提示權限不足；執行 `sudo setcap cap_net_raw,cap_net_admin+eip $(command -v nexttrace)` 後重試。沙箱（root）模式不需處理。
 - **所有反向代理都無法使用**：會自動改為直接連線 github.com；海外 IP 預設直接連線，不使用反向代理。
-- **大小封包顯示 `-`**：若沙箱內 mtr 安裝失敗，或純腳本模式的本機尚未安裝 mtr，大小封包的延遲與封包遺失率會顯示為 `-`（並提示執行 `apt install mtr`）；不影響下載／上傳測速。
+- **大小封包顯示 `-`**：若沙箱內 mtr 安裝失敗，或純腳本模式下 mtr 自動安裝失敗（無 root／`sudo`、無法識別套件管理器、macOS 等），大小封包的延遲與封包遺失率會顯示為 `-`，並提示手動安裝命令（如 `sudo apt install mtr-tiny`）；不影響下載／上傳測速。
 - **中國大陸 apt 速度慢或卡住**：沙箱偵測到位於中國大陸時，會自動切換至清華鏡像（`mirrors.tuna.tsinghua.edu.cn`）；所有 apt 命令皆設有逾時，避免卡住。
 - **在中國大陸下載節點清單**：開始時測出最快的 GitHub 反向代理後，會透過 `SPEEDTAIER_PROXY` 環境變數傳入沙箱；沙箱內下載節點清單時會重用該代理，無需再次測速。

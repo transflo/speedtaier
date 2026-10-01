@@ -136,9 +136,6 @@ run_script_mode() {
         echo "[!] 未检测到 python3，请先安装后重试（例如: apt install python3）"
         return 1
     fi
-    if ! command -v mtr >/dev/null 2>&1 && ! command -v mtr-tiny >/dev/null 2>&1; then
-        echo "[!] 未检测到 mtr，大小包延迟/丢包将显示 -（安装: apt install mtr-tiny 或 brew install mtr）"
-    fi
     echo "[*] 纯脚本模式：在本机直接运行（不加载沙箱）"
     python3 "$tmp_dir/globalspeed_test.py" "${ARGS[@]}"
 }

@@ -151,14 +151,13 @@ load_bench_os() {
     fi
     cd "$work_dir/BenchOs" || exit 1
 
-    _green "[2/3] 挂载 proc/sys/dev 并写入沙箱标记"
+    _green "[2/3] 挂载 proc/sys/dev"
     mount -t proc /proc proc/
     mount --bind /sys sys/
     mount --rbind /dev dev/
     mount --make-rslave dev
     rm -f etc/resolv.conf
     cp /etc/resolv.conf etc/resolv.conf
-    touch etc/speedtaier-sandbox
     mkdir -p opt
 
     cat > opt/install_deps.sh <<'INNER'
@@ -251,21 +250,6 @@ sig_cleanup() {
 
 main() {
     start_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-    CORE_MODE=0
-    for a in "${SCRIPT_ARGS[@]}"; do
-        [[ "$a" == "--core" ]] && CORE_MODE=1
-    done
-    if [[ $CORE_MODE -eq 1 ]]; then
-        _green "Core 模式：跳过沙箱与反代判断，直接本机执行"
-        if [[ ! -f "$start_dir/globalspeed_test.py" ]]; then
-            _red "错误: 当前目录缺少 globalspeed_test.py（Core 模式需本地脚本）"
-            exit 1
-        fi
-        local core_args=("${SCRIPT_ARGS[@]}")
-        [[ $USE_LOCAL -eq 1 ]] && core_args+=(--local)
-        exec python3 "$start_dir/globalspeed_test.py" "${core_args[@]}"
-    fi
 
     if [[ $EUID -ne 0 ]]; then
         _yellow "需要 root 权限（mount/chroot），自动使用 sudo 重新执行..."

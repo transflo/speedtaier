@@ -11,7 +11,6 @@ import socket
 import ssl
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 import urllib.error
@@ -827,49 +826,8 @@ def print_summary(province, city, results):
         print(probe_line("大包", lg_txt, ll_txt))
     print(bot)
 
-SANDBOX_MARK = "/etc/speedtaier-sandbox"
-
-def _re_exec_in_sandbox():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    runner = os.path.join(script_dir, "run_sandbox.sh")
-    if not os.path.exists(runner):
-        try:
-            tmp = tempfile.mkdtemp(prefix="speedtaier_")
-            runner = os.path.join(tmp, "run_sandbox.sh")
-            data = http_get("https://raw.githubusercontent.com/transflo/speedtaier/main/run_sandbox.sh",
-                            timeout=20)
-            with open(runner, "w", encoding="utf-8") as f:
-                f.write(data)
-            os.chmod(runner, 0o755)
-        except Exception:
-            print("[!] 未找到 run_sandbox.sh，且从 GitHub 拉取失败，无法自动加载沙箱。")
-            print("[!] 请确保 run_sandbox.sh 与 globalspeed_test.py 位于同一目录后重试。")
-            sys.exit(1)
-    if os.path.exists(os.path.join(script_dir, "run_sandbox.sh")) and "--local" not in sys.argv:
-        cmd = ["bash", runner, "--local"] + sys.argv[1:]
-    else:
-        cmd = ["bash", runner] + sys.argv[1:]
-    print("[*] 不在沙箱内，自动加载 BenchOS 沙箱运行（测速结束自动删除沙箱）...")
-    try:
-        ret = subprocess.call(cmd)
-    except KeyboardInterrupt:
-        ret = 130
-    sys.exit(ret)
-
-def require_sandbox():
-    if os.path.exists(SANDBOX_MARK):
-        return
-    try:
-        if os.stat("/proc/1/root").st_ino != os.stat("/").st_ino:
-            return
-    except Exception:
-        pass
-    _re_exec_in_sandbox()
-
 def main():
     ap = argparse.ArgumentParser(description="全球网测：交互选择省市，一键测速该市所有运营商（节点表来自 GitHub）")
-    ap.add_argument("--core", action="store_true",
-                    help="Core 模式：不加载沙箱、不做 GitHub 反代判断，仅本机执行核心测速/延迟/丢包")
     ap.add_argument("--province", default=None, help="省份（不指定则交互选择）")
     ap.add_argument("--city", default=None, help="城市（不指定则交互选择）")
     ap.add_argument("--operator", default=None, help="只测指定运营商")
@@ -889,10 +847,6 @@ def main():
                     help="本地优先：脚本同目录存在节点表（serverlist_decrypted.json 等）时自动采用本地文件，不拉 GitHub")
     args = ap.parse_args()
 
-    if args.core:
-        os.environ.pop("SPEEDTAIER_PROXY", None)
-    else:
-        require_sandbox()
     _ensure_nexttrace()
 
     progress_enabled = not args.no_progress
